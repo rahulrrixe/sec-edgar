@@ -102,7 +102,7 @@ class DailyFilings(IndexFilings):
         """
         if self._date.year < 1995:
             return self._date.strftime("%m%d%y")
-        elif self._date < datetime.date(1998, 3, 31):
+        elif self._date < datetime.datetime(1998, 3, 31):
             return self._date.strftime("%y%m%d")
         else:
             return self._date.strftime("%Y%m%d")
