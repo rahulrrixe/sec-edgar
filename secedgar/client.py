@@ -8,9 +8,10 @@ import requests
 import tqdm
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 from secedgar.exceptions import EDGARQueryError
 from secedgar.utils import make_path
-from urllib3.util.retry import Retry
 
 
 class NetworkClient:
@@ -55,9 +56,11 @@ class NetworkClient:
     @retry_count.setter
     def retry_count(self, value):
         if not isinstance(value, int):
-            raise TypeError("Retry count must be int. Given type {0}.".format(type(value)))
+            raise TypeError("Retry count must be int. Given type {0}.".format(
+                type(value)))
         elif value < 0:
-            raise ValueError("Retry count must be greater than 0. Given {0}.".format(value))
+            raise ValueError(
+                "Retry count must be greater than 0. Given {0}.".format(value))
         self._retry_count = value
 
     @property
@@ -68,7 +71,8 @@ class NetworkClient:
     @batch_size.setter
     def batch_size(self, value):
         if not isinstance(value, int):
-            raise TypeError("Batch size must be int. Given type {0}".format(type(value)))
+            raise TypeError("Batch size must be int. Given type {0}".format(
+                type(value)))
         elif value < 1:
             raise ValueError("Batch size must be positive integer.")
         self._batch_size = value
@@ -82,7 +86,8 @@ class NetworkClient:
     def backoff_factor(self, value):
         if not isinstance(value, (int, float)):
             raise TypeError(
-                "Backoff factor must be int or float. Given type {0}".format(type(value)))
+                "Backoff factor must be int or float. Given type {0}".format(
+                    type(value)))
         self._backoff_factor = value
 
     @property
@@ -93,7 +98,8 @@ class NetworkClient:
     @rate_limit.setter
     def rate_limit(self, value):
         if not (0 < value <= 10):
-            raise ValueError("Rate must be greater than 0 and less than or equal to 10.")
+            raise ValueError(
+                "Rate must be greater than 0 and less than or equal to 10.")
         else:
             self._rate_limit = value
 
@@ -130,8 +136,7 @@ class NetworkClient:
             EDGARQueryError: If response contains EDGAR error message.
         """
         error_messages = ("The value you submitted is not valid",
-                          "No matching Ticker Symbol.",
-                          "No matching CIK.",
+                          "No matching Ticker Symbol.", "No matching CIK.",
                           "No matching companies.")
         status_code = response.status_code
 
@@ -141,7 +146,8 @@ class NetworkClient:
             Please wait 10 minutes before making another request.
             https://www.sec.gov/privacy.htm#security"""
         elif any(m in response.text for m in error_messages):
-            raise EDGARQueryError("No results were found or the value submitted was not valid.")
+            raise EDGARQueryError(
+                "No results were found or the value submitted was not valid.")
 
         return response
 
@@ -164,7 +170,8 @@ class NetworkClient:
         prepared_url = self._prepare_query(path)
         headers = {"User-Agent": self.user_agent}
         with requests.Session() as session:
-            retry = Retry(self.retry_count, backoff_factor=self.backoff_factor,
+            retry = Retry(self.retry_count,
+                          backoff_factor=self.backoff_factor,
                           raise_on_status=True)
             session.mount(self._BASE, adapter=HTTPAdapter(max_retries=retry))
             session.hooks["response"].append(self._validate_response)
@@ -183,9 +190,11 @@ class NetworkClient:
         Returns:
             BeautifulSoup object from response text.
         """
-        return BeautifulSoup(self.get_response(path, params, **kwargs).text, features='lxml')
+        return BeautifulSoup(self.get_response(path, params, **kwargs).text,
+                             features='lxml')
 
-    async def fetch(self, link, session):
+    @staticmethod
+    async def fetch(link, session):
         """Asynchronous get request.
 
         Args:
@@ -208,6 +217,7 @@ class NetworkClient:
             where content after requesting URL is stored.
         """
         async def fetch_and_save(link, path, session):
+            """Fetch link and save to path using session."""
             contents = await self.fetch(link, session)
             make_path(os.path.dirname(path))
             with open(path, "wb") as f:
@@ -226,13 +236,21 @@ class NetworkClient:
             for ndx in range(0, length, n):
                 yield iterable[ndx:min(ndx + n, length)]
 
+        conn = aiohttp.TCPConnector(limit=self.rate_limit)
+        client = aiohttp.ClientSession(connector=conn,
+                                       headers={'Connection': 'keep-alive'},
+                                       raise_for_status=True)
+
         async with client:
             for group in tqdm.tqdm(batch(inputs, self.rate_limit),
-                                   total=len(inputs)//self.rate_limit,
+                                   total=len(inputs) // self.rate_limit,
                                    unit_scale=self.rate_limit):
                 start = time.monotonic()
-                tasks = [fetch_and_save(link, path, client) for link, path in group]
-                await asyncio.gather(*tasks)  # If results are needed they can be assigned here
+                tasks = [
+                    fetch_and_save(link, path, client) for link, path in group
+                ]
+                await asyncio.gather(
+                    *tasks)  # If results are needed they can be assigned here
                 execution_time = time.monotonic() - start
                 # If execution time > 1, requests are essentially wasted, but a small price to pay
                 await asyncio.sleep(max(0, 1 - execution_time))

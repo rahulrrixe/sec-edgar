@@ -4,17 +4,6 @@
 Install
 =======
 
-Dependencies
-------------
-
-secedgar relies on:
-
--  `beautifulsoup4 <https://www.crummy.com/software/BeautifulSoup/bs4/doc/>`__
--  `requests <http://docs.python-requests.org>`__
-
-Installation
-------------
-
 Latest stable release via pip (recommended):
 
 .. code:: bash

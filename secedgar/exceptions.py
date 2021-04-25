@@ -11,3 +11,8 @@ class CIKError(Exception):
 class FilingTypeError(Exception):
     """This error is thrown when an invalid filing type is given."""
     pass
+
+
+class NoFilingsError(Exception):
+    """This error is thrown when no filings are found."""
+    pass

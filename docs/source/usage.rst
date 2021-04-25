@@ -14,13 +14,13 @@ This package is useful for obtaining important financial information about publi
 - Letter to Shareholders
 - Management's Analysis
 
-The ``Filing`` class provides a simple API to fetch SEC filings.
+The ``CompanyFilings`` class provides a simple API to fetch SEC filings.
 
 .. code-block:: python
 
-   from secedgar.filings import Filing, FilingType
+   from secedgar import CompanyFilings, FilingType
 
-   my_filings = Filing(cik_lookup='aapl',
+   my_filings = CompanyFilings(cik_lookup='aapl',
                        filing_type=FilingType.FILING_10Q,
                        count=15)
 
@@ -28,9 +28,9 @@ The ``cik_lookup`` argument can also take multiple tickers and/or company names.
 
 .. code-block:: python
 
-   from secedgar.filings import Filing, FilingType
+   from secedgar import CompanyFilings, FilingType
 
-   my_filings = Filing(cik_lookup=['aapl', 'msft', 'Facebook'],
+   my_filings = CompanyFilings(cik_lookup=['aapl', 'msft', 'Facebook'],
                        filing_type=FilingType.FILING_10Q,
                        count=15)
 

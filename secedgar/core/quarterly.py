@@ -1,11 +1,11 @@
 import os
 from datetime import date
 
-from secedgar.filings._index import IndexFilings
+from secedgar.core._index import IndexFilings
 from secedgar.utils import get_quarter
 
 
-class MasterFilings(IndexFilings):
+class QuarterlyFilings(IndexFilings):
     """Class for retrieving all filings from specific year and quarter.
 
     Args:
@@ -15,8 +15,8 @@ class MasterFilings(IndexFilings):
             ``secedgar.client.NetworkClient`` if None given.
         entry_filter (function, optional): A boolean function to determine
             if the FilingEntry should be kept. Defaults to ``lambda _: True``.
-            See :class:`secedgar.filings.DailyFilings` for more detail.
-        kwargs: Keyword arguments to pass to ``secedgar.filings._index.IndexFilings``.
+            See :class:`secedgar.core.DailyFilings` for more detail.
+        kwargs: Keyword arguments to pass to ``secedgar.core._index.IndexFilings``.
     """
 
     def __init__(self,
@@ -32,8 +32,8 @@ class MasterFilings(IndexFilings):
     @property
     def path(self):
         """Path property to pass to client."""
-        return "Archives/edgar/full-index/{year}/QTR{num}/".format(year=self._year,
-                                                                   num=self._quarter)
+        return "Archives/edgar/full-index/{year}/QTR{num}/".format(
+            year=self._year, num=self._quarter)
 
     @property
     def year(self):
@@ -45,8 +45,9 @@ class MasterFilings(IndexFilings):
         if not isinstance(val, int):
             raise TypeError("Year must be an integer.")
         elif val < 1993 or val > date.today().year:
-            raise ValueError("Year must be in between 1993 and {now} (inclusive)".format(
-                now=date.today().year))
+            raise ValueError(
+                "Year must be in between 1993 and {now} (inclusive)".format(
+                    now=date.today().year))
         self._year = val
 
     @property
@@ -70,11 +71,10 @@ class MasterFilings(IndexFilings):
         """Main index filename to look for."""
         return "master.idx"
 
-    def _get_tar(self):
+    def _get_tar_urls(self):
         """The list of .tar.gz daily files in the current quarter."""
         soup = self.client.get_soup(self.tar_path, {})
-        files = [a.get('href') for a in soup.find_all('a')]
-        files = [file for file in files if "nc.tar.gz" in file]
+        files = [a.get('href') for a in soup.find_all('a') if "nc.tar.gz" in a.get('href')]
         return files
 
     def save(self,
@@ -86,7 +86,7 @@ class MasterFilings(IndexFilings):
 
         Creates subdirectory within given directory of the form <YEAR>/QTR<QTR NUMBER>/.
         Then each distinct company name receives its own directory with all of its filings.
-        See ``secedgar.filings._index.IndexFilings`` for more detail.
+        See ``secedgar.core._index.IndexFilings`` for more detail.
 
         Args:
             directory (str): Directory where filings should be stored. Will be broken down
@@ -104,7 +104,9 @@ class MasterFilings(IndexFilings):
             dir_pattern = os.path.join('{year}', 'QTR{quarter}', '{cik}')
 
         # If "{cik}" is in dir_pattern, it will be passed on and if not it will be ignored
-        formatted_dir = dir_pattern.format(year=self.year, quarter=self.quarter, cik="{cik}")
+        formatted_dir = dir_pattern.format(year=self.year,
+                                           quarter=self.quarter,
+                                           cik="{cik}")
         self._save_filings(directory,
                            dir_pattern=formatted_dir,
                            file_pattern=file_pattern,

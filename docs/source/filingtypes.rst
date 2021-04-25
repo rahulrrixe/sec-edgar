@@ -3,17 +3,8 @@
 Filing Types
 ============
 
-This page aims to explain briefly what information is contained in some of the most popular filing types.
-*Note that this list of filing types is not exhaustive.*
-The complete list of filing types is at :class:`secedgar.filings.FilingType`.
-This class supports over 100 filing types.
-
-Supported Filing Types
-----------------------
-
-.. autoclass:: secedgar.filings.FilingType
-   :members:
-   :undoc-members:
+This page aims to first explain briefly what information is contained in some of the most popular filing types.
+The complete table of filing types is available at the bottom of this document.
 
 
 Common Filing Types
@@ -80,3 +71,24 @@ functionality or production of those products."
 Form DEF 14A
 ~~~~~~~~~~~~~
 Definitive proxy statement. Required ahead of annual meeting when firm is soliciting shareholder votes.
+
+All Filing Types
+----------------
+
+.. csv-table::
+   :file: filingtypes.csv
+   :header-rows: 1
+   :widths: 10, 20, 20, 50
+
+Using FilingType with secedgar
+--------------------------------
+
+As is shown in the table above, there are many different filing types to choose from.
+Below is a complete list of all available filing types that you can choose from.
+
+To see how filing types are used in secedgar, see :ref:`usage`.
+
+.. autoclass:: secedgar.FilingType
+   :members:
+   :undoc-members:
+

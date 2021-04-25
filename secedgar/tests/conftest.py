@@ -2,7 +2,7 @@ import pytest
 import requests
 from secedgar.cik_lookup import CIKLookup
 from secedgar.client import NetworkClient
-from secedgar.filings import MasterFilings
+from secedgar.core import QuarterlyFilings
 from secedgar.tests.utils import AsyncMockResponse, MockResponse, datapath
 
 
@@ -24,15 +24,13 @@ def monkeysession():
 
 @pytest.fixture(autouse=True, scope="session")
 def no_http_requests(monkeysession):
+
     def external_request_mock(object, *args, **kwargs):
         raise RuntimeError(
             f"""A request to an external source was about to be made by {object}.
             Please provide mock for {object}.""")
 
-    to_avoid = (
-        "requests.Session.get",
-        "aiohttp.ClientSession.get"
-    )
+    to_avoid = ("requests.Session.get", "aiohttp.ClientSession.get")
 
     for avoid in to_avoid:
         monkeysession.setattr(avoid, external_request_mock)
@@ -40,9 +38,10 @@ def no_http_requests(monkeysession):
 
 @pytest.fixture(scope="session")
 def mock_filing_response(monkeysession):
-    monkeysession.setattr(NetworkClient, "fetch",
-                          lambda *args, **kwargs:
-                          AsyncMockResponse(content=bytes("Testing...", "utf-8")).read())
+    monkeysession.setattr(
+        NetworkClient, "fetch",
+        lambda *args, **kwargs: AsyncMockResponse(content=bytes(
+            "Testing...", "utf-8")).read())
 
 
 @pytest.fixture(scope="session")
@@ -53,7 +52,7 @@ def mock_master_idx_file(monkeysession):
         with open(datapath("filings", "master", "master.idx")) as f:
             return f.read()
 
-    monkeysession.setattr(MasterFilings, "_get_master_idx_file",
+    monkeysession.setattr(QuarterlyFilings, "_get_master_idx_file",
                           _mock_master_idx_file)
 
 

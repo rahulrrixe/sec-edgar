@@ -1,7 +1,7 @@
 import datetime
 import os
 
-from secedgar.filings._index import IndexFilings
+from secedgar.core._index import IndexFilings
 from secedgar.utils import get_quarter
 
 
@@ -14,7 +14,7 @@ class DailyFilings(IndexFilings):
             Defaults to ``secedgar.client.NetworkClient`` if none is given.
         entry_filter (function, optional): A boolean function to determine
             if the FilingEntry should be kept. Defaults to `lambda _: True`.
-            The ``FilingEntry`` object exposes 6 variables which can be
+            The ``FilingEntry`` object exposes 7 variables which can be
             used to filter which filings to keep. These are "cik", "company_name",
             "form_type", "date_filed", "file_name", and "path".
         kwargs: Keyword arguments to pass to ``secedgar.filings._index.IndexFilings``.
@@ -44,19 +44,15 @@ class DailyFilings(IndexFilings):
     .. code-block:: python
 
         from datetime import date
-        from secedgar.filings import DailyFilings
+        from secedgar.core import DailyFilings
 
         d = DailyFilings(date=date(2020, 12, 10), entry_filter=get_company_ab_10k)
 
     """
 
-    def __init__(self, date, client=None, entry_filter=lambda _: True, **kwargs):
-        super().__init__(client=client, entry_filter=entry_filter, **kwargs)
-        if not isinstance(date, datetime.date):
-            raise TypeError(
-                "Date must be given as datetime.date object. Was given type {type}.".format(
-                    type=type(date)))
-        self._date = date
+    def __init__(self, date, client=None, entry_filter=lambda _: True):
+        super().__init__(client=client, entry_filter=entry_filter)
+        self.date = date
 
     @property
     def path(self):
@@ -71,25 +67,41 @@ class DailyFilings(IndexFilings):
 
     @property
     def quarter(self):
-        """Get quarter number from date attribute."""
+        """int: Get quarter number from date attribute."""
         return get_quarter(self._date)
 
     @property
     def year(self):
-        """Year of date for daily filing."""
+        """int: Year of date for daily filing."""
         return self._date.year
+
+    @property
+    def date(self):
+        """datetime.date: Date of daily filing."""
+        return self._date
+
+    @date.setter
+    def date(self, val):
+        if not isinstance(val, (datetime.date, datetime.datetime)):
+            raise TypeError(
+                """Date must be given as datetime.date or datetime.datetime object.
+                            Was given type {type}.""".format(type=type(val)))
+        self._date = val
 
     @property
     def idx_filename(self):
         """Main index filename to look for."""
         return "master.{date}.idx".format(date=self._get_idx_formatted_date())
 
-    def _get_tar(self):
+    def _get_tar_urls(self):
         """The .tar.gz filename for the current day."""
         if self.year < 1995 or (self.year == 1995 and self.quarter < 3):
-            raise ValueError('Bulk downloading is only available starting 1995 Q3.')
-        daily_file = '{date}.nc.tar.gz'.format(date=self._date.strftime("%Y%m%d"))
-        return [daily_file]
+            raise ValueError(
+                'Bulk downloading is only available starting 1995 Q3.')
+        daily_file = '{date}.nc.tar.gz'.format(
+            date=self._date.strftime("%Y%m%d"))
+        daily_url = f'{self.client._BASE}{self.tar_path}{daily_file}'
+        return [daily_url]
 
     def _get_idx_formatted_date(self):
         """Format date for idx file.
@@ -134,7 +146,8 @@ class DailyFilings(IndexFilings):
             dir_pattern = os.path.join("{date}", "{cik}")
 
         # If "{cik}" is in dir_pattern, it will be passed on and if not it will be ignored
-        formatted_dir = dir_pattern.format(date=self._date.strftime(date_format), cik="{cik}")
+        formatted_dir = dir_pattern.format(
+            date=self._date.strftime(date_format), cik="{cik}")
         self._save_filings(directory,
                            dir_pattern=formatted_dir,
                            file_pattern=file_pattern,

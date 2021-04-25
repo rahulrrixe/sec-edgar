@@ -2,14 +2,15 @@ import asyncio
 import os
 import re
 import shutil
+import tempfile
 from abc import abstractmethod
 from collections import namedtuple
 from queue import Empty, Queue
 from threading import Thread
 
 from secedgar.client import NetworkClient
+from secedgar.core._base import AbstractFiling
 from secedgar.exceptions import EDGARQueryError
-from secedgar.filings._base import AbstractFiling
 from secedgar.utils import make_path
 
 
@@ -34,7 +35,7 @@ class IndexFilings(AbstractFiling):
         self._filings_dict = None
         self._paths = []
         self._urls = {}
-        self._entry_filter = entry_filter
+        self.entry_filter = entry_filter
 
     @property
     def entry_filter(self):
@@ -43,6 +44,13 @@ class IndexFilings(AbstractFiling):
         This is tested regardless of download method.
         """
         return self._entry_filter
+
+    @entry_filter.setter
+    def entry_filter(self, fn):
+        if callable(fn):
+            self._entry_filter = fn
+        else:
+            raise ValueError('entry_filter must be a function or lambda.')
 
     @property
     def client(self):
@@ -73,14 +81,15 @@ class IndexFilings(AbstractFiling):
         pass  # pragma: no cover
 
     @abstractmethod
-    def _get_tar(self):
+    def _get_tar_urls(self):
         """Passed to child classes."""
         pass  # pragma: no cover
 
     @property
     def tar_path(self):
         """str: Tar.gz path added to the client base."""
-        return "Archives/edgar/Feed/{year}/QTR{num}/".format(year=self.year, num=self.quarter)
+        return "Archives/edgar/Feed/{year}/QTR{num}/".format(year=self.year,
+                                                             num=self.quarter)
 
     def _get_listings_directory(self, update_cache=False, **kwargs):
         """Get page with list of all idx files for given date or quarter.
@@ -95,7 +104,8 @@ class IndexFilings(AbstractFiling):
                 given quarter and year.
         """
         if self._listings_directory is None or update_cache:
-            self._listings_directory = self.client.get_response(self.path, self.params, **kwargs)
+            self._listings_directory = self.client.get_response(
+                self.path, self.params, **kwargs)
         return self._listings_directory
 
     def _get_master_idx_file(self, update_cache=False, **kwargs):
@@ -122,8 +132,8 @@ class IndexFilings(AbstractFiling):
                     master_idx_url, self.params, **kwargs).text
             else:
                 raise EDGARQueryError("""File {filename} not found.
-                                     There may be no filings for the given day/quarter.""".format(
-                    filename=self.idx_filename))
+                                     There may be no filings for the given day/quarter."""
+                                      .format(filename=self.idx_filename))
         return self._master_idx_file
 
     def get_filings_dict(self, update_cache=False, **kwargs):
@@ -134,23 +144,30 @@ class IndexFilings(AbstractFiling):
                 updated on each method call. Defaults to False.
 
             kwargs: Any kwargs to pass to _get_master_idx_file. See
-                ``secedgar.filings.daily.DailyFilings._get_master_idx_file``.
+                ``secedgar.core.daily.DailyFilings._get_master_idx_file``.
         """
         if self._filings_dict is None or update_cache:
             idx_file = self._get_master_idx_file(**kwargs)
             # Will have CIK as keys and list of FilingEntry namedtuples as values
             self._filings_dict = {}
-            FilingEntry = namedtuple(
-                "FilingEntry", ["cik", "company_name", "form_type", "date_filed", "file_name",
-                                "path"])
+            FilingEntry = namedtuple("FilingEntry", [
+                "cik", "company_name", "form_type", "date_filed", "file_name",
+                "path", "num_previously_valid"
+            ])
             # idx file will have lines of the form CIK|Company Name|Form Type|Date Filed|File Name
-            entries = re.findall(r'^[0-9]+[|].+[|].+[|][0-9\-]+[|].+$', idx_file, re.MULTILINE)
+            current_count = 0
+            entries = re.findall(r'^[0-9]+[|].+[|].+[|][0-9\-]+[|].+$',
+                                 idx_file, re.MULTILINE)
             for entry in entries:
                 fields = entry.split("|")
                 path = "Archives/{file_name}".format(file_name=fields[-1])
-                entry = FilingEntry(*fields, path=path)
-                if self.entry_filter is not None and not self.entry_filter(entry):
+                entry = FilingEntry(*fields,
+                                    path=path,
+                                    num_previously_valid=current_count)
+                if self.entry_filter is not None and not self.entry_filter(
+                        entry):
                     continue
+                current_count += 1
                 # Add new filing entry to CIK's list
                 if entry.cik in self._filings_dict:
                     self._filings_dict[entry.cik].append(entry)
@@ -168,8 +185,11 @@ class IndexFilings(AbstractFiling):
         """
         if not self._urls:
             filings_dict = self.get_filings_dict()
-            self._urls = {company: [self.client._prepare_query(entry.path) for entry in entries]
-                          for company, entries in filings_dict.items()}
+            self._urls = {
+                company:
+                [self.client._prepare_query(entry.path) for entry in entries]
+                for company, entries in filings_dict.items()
+            }
         return self._urls
 
     @staticmethod
@@ -215,7 +235,14 @@ class IndexFilings(AbstractFiling):
                 Note that this directory will be completely removed after
                 files are unzipped.
         """
-        tar_files = self._get_tar()
+        # Download tar files asynchronously into extract_directory
+        tar_urls = self._get_tar_urls()
+        inputs = [(url, os.path.join(extract_directory, url.split('/')[-1])) for url in tar_urls]
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.client.wait_for_download_async(inputs))
+
+        tar_files = [p for _, p in inputs]
+
         unpack_queue = Queue(maxsize=len(tar_files))
         unpack_threads = len(tar_files)
 
@@ -229,14 +256,15 @@ class IndexFilings(AbstractFiling):
 
         unpack_queue.join()
 
-    def _move_to_dest(self, urls, extract_directory, directory, file_pattern, dir_pattern):
+    def _move_to_dest(self, urls, extract_directory, directory, file_pattern,
+                      dir_pattern):
         """Moves all files from extract_directory into proper final format in directory.
 
         Args:
             urls (dict): Dictionary of URLs that were retrieved. See
-            ``secedgar.filings._index.IndexFilings.get_urls()`` for more.
+            ``secedgar.core._index.IndexFilings.get_urls()`` for more.
             extract_directory (str): Location of extract directory as used in
-                ``secedgar.filings.daily.DailyFilings._unzip``
+                ``secedgar.core.daily.DailyFilings._unzip``
             directory (str): Final parent directory to move files to.
             dir_pattern (str): Format string for subdirectories. Default is `{cik}`.
                 Valid options are `cik`. See ``save`` method for more.
@@ -277,7 +305,8 @@ class IndexFilings(AbstractFiling):
                       directory,
                       dir_pattern="{cik}",
                       file_pattern="{accession_number}",
-                      download_all=False):
+                      download_all=False,
+                      **kwargs):
         """Save all filings.
 
         Will store all filings under the parent directory of ``directory``, further
@@ -292,27 +321,17 @@ class IndexFilings(AbstractFiling):
             download_all (bool): Type of downloading system, if true downloads all tar files,
                 if false downloads each file in index. Default is `False`.
         """
-        urls = self._check_urls_exist()
+        urls = self.get_urls_safely(**kwargs)
 
         if download_all:
-            # Download tar files into huge temp directory
-            extract_directory = os.path.join(directory, 'temp')
-            i = 0
-            while os.path.exists(extract_directory):
-                # Ensure that there is no name clashing
-                extract_directory = os.path.join(directory, 'temp{i}'.format(i=i))
-                i += 1
-
-            make_path(extract_directory)
-            self._unzip(extract_directory=extract_directory)
-            self._move_to_dest(urls=urls,
-                               extract_directory=extract_directory,
-                               directory=directory,
-                               file_pattern=file_pattern,
-                               dir_pattern=dir_pattern)
-
-            # Remove the initial extracted data
-            shutil.rmtree(extract_directory)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                self._unzip(extract_directory=tmpdir)
+                # Apply folder structure by moving to final directory
+                self._move_to_dest(urls=urls,
+                                   extract_directory=tmpdir,
+                                   directory=directory,
+                                   file_pattern=file_pattern,
+                                   dir_pattern=dir_pattern)
         else:
             inputs = []
             for company, links in urls.items():
@@ -320,7 +339,8 @@ class IndexFilings(AbstractFiling):
                 for link in links:
                     formatted_file = file_pattern.format(
                         accession_number=self.get_accession_number(link))
-                    path = os.path.join(directory, formatted_dir, formatted_file)
+                    path = os.path.join(directory, formatted_dir,
+                                        formatted_file)
                     inputs.append((link, path))
             loop = asyncio.get_event_loop()
             loop.run_until_complete(self.client.wait_for_download_async(inputs))

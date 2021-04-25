@@ -17,6 +17,8 @@ develop-eggs
 
 # Virtual environment
 venv/
+.venv/
+
 # Installer logs
 pip-log.txt
 
