@@ -1,8 +1,10 @@
+import datetime
 import os
+from datetime import date
 
 import pytest
 from click.testing import CliRunner
-from secedgar.cli import cli
+from secedgar.cli import cli, date_cleanup
 from secedgar.exceptions import FilingTypeError
 # Borrow mocks without including in conftest
 from secedgar.tests.filings.test_daily import mock_daily_idx_file  # noqa: F401
@@ -104,3 +106,21 @@ class TestCLI:
     )
     def test_cli_requires_user_agent(self, user_input, tmp_data_directory):
         check_bad_inputs(cli, user_input, SystemExit, tmp_data_directory, user_agent=None)
+
+    @pytest.mark.parametrize(
+        "input,output",
+        [
+            ("20210423", date(2021, 4, 23)),
+            ("19900101", date(1990, 1, 1)),
+            ("20000101", date(2000, 1, 1)),
+            (None, None)
+        ]
+
+    )
+    def test_date_cleanup(self, input, output):
+        result = date_cleanup(input)
+        if isinstance(input, str):
+            assert isinstance(result, datetime.date)
+        else:
+            assert result is None
+        assert result == output

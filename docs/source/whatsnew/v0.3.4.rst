@@ -5,6 +5,7 @@ Highlights
 ~~~~~~~~~~
 
 - Add ``user_agent`` to CLI to fix external breaking change
+- Fix issue where daily CLI command would not work due to ``date_cleanup`` returning ``datetime.datetime`` instead of ``datetime.date``
 
 
 Contributors

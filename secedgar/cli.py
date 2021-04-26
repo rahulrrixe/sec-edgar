@@ -14,9 +14,7 @@ from secedgar.filings import DailyFilings, Filing, FilingType
               type=str)
 @click.pass_context
 def cli(ctx, user_agent):
-    r"""Main CLI group.
-
-    \f
+    """Main CLI group.
 
     Args:
         ctx (click.core.Context): Click context.
@@ -30,16 +28,16 @@ def cli(ctx, user_agent):
 
 
 def date_cleanup(date):
-    r"""Transforms date of form YYYYMMDD to datetime object.
+    """Transforms date of form YYYYMMDD to datetime object.
 
     Args:
-        date (Union[str, NoneType]): Date of the form YYYYMMDD to be transformed.
+        date (str): Date of the form YYYYMMDD to be transformed.
 
     Returns:
-        ``datetime.datetime`` object if given string.
-        Returns None if None is given.
+        ``datetime.date`` object if given string.
+        If given None, None is returned.
     """
-    return datetime.strptime(date, "%Y%m%d") if date is not None else None
+    return datetime.strptime(date, "%Y%m%d").date() if date is not None else None
 
 
 @cli.command()
@@ -67,9 +65,7 @@ def date_cleanup(date):
               default=os.getcwd(), type=str)
 @click.pass_context
 def filing(ctx, lookups, ftype, start, end, count, directory):
-    r"""Click command for downloading filings. Run ``secedgar filing --help`` for info.
-
-    \f
+    """Click command for downloading filings. Run ``secedgar filing --help`` for info.
 
     Args:
         ctx (click.core.Context): Click context.
@@ -109,6 +105,13 @@ def filing(ctx, lookups, ftype, start, end, count, directory):
               default=os.getcwd(), type=str)
 @click.pass_context
 def daily(ctx, date, directory):
-    """Click command for downloading daily filings. Run ``secedgar daily --help`` for info."""
+    """Click command for downloading daily filings. Run ``secedgar daily --help`` for info.
+
+    Args:
+        ctx (click.core.Context): Click context.
+        date (str): Date to look up daily filings for. Should be in the format YYYYMMDD.
+        directory (str): Directory where files should be saved.
+            Defaults to current working directory.
+    """
     d = DailyFilings(date=date_cleanup(date), user_agent=ctx.obj['user_agent'])
     d.save(directory=directory)
