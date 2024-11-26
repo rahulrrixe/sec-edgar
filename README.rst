@@ -25,7 +25,7 @@ You can clone the project:
 
    $ git clone https://github.com/sec-edgar/sec-edgar.git
    $ cd sec-edgar
-   $ python setup.py install
+   $ python install .
 
 Running
 -------
