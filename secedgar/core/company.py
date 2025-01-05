@@ -298,7 +298,6 @@ class CompanyFilings(AbstractFiling):
             warnings.warn(
                 "Only {num} of {count} filings were found for {cik}.".format(
                     num=len(txt_urls), count=self.count, cik=cik))
-        print(self.count)
         # Takes `count` filings at most
         return txt_urls[:self.count]
 
@@ -342,5 +341,4 @@ class CompanyFilings(AbstractFiling):
                 path = os.path.join(directory, formatted_dir, formatted_file)
                 inputs.append((link, path))
 
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.client.wait_for_download_async(inputs))
+        asyncio.run(self.client.wait_for_download_async(inputs))

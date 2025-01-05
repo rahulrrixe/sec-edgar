@@ -19,7 +19,6 @@ Welcome to secedgar's documentation!
    rest_api
    cikmap
    client
-   parser
    cli
    whatsnew
 

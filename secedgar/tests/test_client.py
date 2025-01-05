@@ -175,7 +175,6 @@ class TestNetworkClient:
         client.batch_size = good_batch_size
         assert client.batch_size == good_batch_size
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "rate_limit",
         range(1, 10)
@@ -188,8 +187,7 @@ class TestNetworkClient:
         num_requests = rate_limit * min_seconds
         inputs = [("https://google.com", os.path.join(tmp_data_directory, str(i)))
                   for i in range(num_requests)]
-        loop = asyncio.get_event_loop()
         start = time.time()
-        loop.run_until_complete(client.wait_for_download_async(inputs))
+        asyncio.run(client.wait_for_download_async(inputs))
         end = time.time()
         assert num_requests / math.ceil(end - start) <= rate_limit

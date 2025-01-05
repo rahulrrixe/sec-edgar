@@ -71,7 +71,7 @@ def mock_filing_data(monkeysession):
                           MockResponse(content=bytes("Testing...", "utf-8")))
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def tmp_data_directory(tmpdir_factory):
     return str(tmpdir_factory.mktemp("tmp_data"))
 

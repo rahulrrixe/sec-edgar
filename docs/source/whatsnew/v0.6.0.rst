@@ -1,0 +1,16 @@
+v0.6.0
+------
+
+Highlights
+~~~~~~~~~~
+
+- Pass user agent to ``CIKLookup`` and require user agent for ``get_cik_map``. Thanks to clintmoyer!
+- Fix bug preventing ``filing_type`` being set to ``None`` in ``CompanyFilings``
+- Changed supported versions (now supports Python 3.8 through 3.12)
+
+Contributors
+~~~~~~~~~~~~
+
+- clintmoyer
+- jackmoody11
+- tenstormavi

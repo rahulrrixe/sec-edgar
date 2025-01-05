@@ -198,7 +198,6 @@ def get_xbrl_frames(user_agent: str,
     if instantaneous:
         period += "I"
     url = "{0}frames/us-gaap/{1}/{2}/{3}.json".format(XBRL_BASE, concept_name, currency, period)
-    print(url)
     # Request and add to dictionary
     resp = requests.get(url, headers={"user-agent": user_agent})
     xbrl_frames = resp.json()
